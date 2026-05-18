@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { resolveRequestAuth } from '@/lib/server/request-auth';
 import { verifyPaystackTransaction } from '@/lib/paystack';
-import { runWalletForUser } from '@/lib/server/member-wallet';
+import {
+  creditPaystackDeposit,
+  paystackMetadataUserId,
+} from '@/lib/server/paystack-wallet';
 
 export async function POST(request: Request) {
   const ctx = await resolveRequestAuth(request);
@@ -10,7 +13,11 @@ export async function POST(request: Request) {
   }
   if (ctx.kind !== 'supabase') {
     return NextResponse.json(
-      { error: 'supabase_session_required' },
+      {
+        error: 'supabase_session_required',
+        hint:
+          'Sign in with demo-member@fountain.coop (password demo). Legacy FC-1001 tokens cannot verify Paystack payments.',
+      },
       { status: 503 }
     );
   }
@@ -28,18 +35,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    const existing = await ctx.supabase
-      .from('operational_items')
-      .select('id')
-      .eq('module', 'member')
-      .eq('subtype', 'walletLedger')
-      .eq('owner_id', ctx.user.id)
-      .contains('data', { paystackReference: reference })
-      .maybeSingle();
-    if (existing.data?.id) {
-      return NextResponse.json({ ok: true, alreadyProcessed: true });
-    }
-
     const verified = await verifyPaystackTransaction(reference);
     if (verified.status !== 'success') {
       return NextResponse.json(
@@ -47,22 +42,32 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const metaUserId = paystackMetadataUserId(
+      (verified.metadata ?? null) as Record<string, unknown> | null
+    );
+    if (metaUserId && metaUserId !== ctx.user.id) {
+      return NextResponse.json(
+        {
+          error: 'payment_user_mismatch',
+          hint: 'This payment belongs to a different account. Sign in with the account that started checkout.',
+        },
+        { status: 403 }
+      );
+    }
+
     const amount = Math.round(Number(verified.amount ?? 0)) / 100;
     if (!amount || amount <= 0) {
       return NextResponse.json({ error: 'invalid_verified_amount' }, { status: 400 });
     }
 
-    return runWalletForUser(ctx.supabase, {
+    return creditPaystackDeposit({
       userId: ctx.user.id,
-      branch: ctx.profile?.branch ?? null,
-      kind: 'deposit',
-      amount,
-      label: 'Paystack deposit',
-      meta: {
-        paystackReference: reference,
-        paystackChannel: verified.channel ?? null,
-        paystackPaidAt: verified.paid_at ?? null,
-      },
+      reference,
+      amountNaira: amount,
+      channel: verified.channel ?? null,
+      paidAt: verified.paid_at ?? null,
+      user: ctx.user,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'paystack_verify_failed';

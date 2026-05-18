@@ -46,7 +46,14 @@ export function MemberHeader({
         </div>
       </div>
       <div>
-        <p className="text-white/60 text-sm">Good afternoon,</p>
+        <p className="text-white/60 text-sm">
+          {(() => {
+            const h = new Date().getHours();
+            if (h < 12) return 'Good morning,';
+            if (h < 17) return 'Good afternoon,';
+            return 'Good evening,';
+          })()}
+        </p>
         <h1 className="text-xl font-bold">{greetingName}</h1>
         <p className="text-white/50 text-xs mt-0.5">
           {[memberCode, branch].filter(Boolean).join(' • ') || 'Member portal'}

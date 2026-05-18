@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isLegacyAuthEnabled } from '@/lib/config/app-mode';
 import {
   DASHBOARD_KPIS,
   LOAN_PORTFOLIO,
@@ -50,6 +51,16 @@ export async function GET(request: Request) {
       const message = e instanceof Error ? e.message : 'dashboard_error';
       return NextResponse.json({ error: message }, { status: 500 });
     }
+  }
+
+  if (!isLegacyAuthEnabled()) {
+    return NextResponse.json(
+      {
+        error: 'supabase_session_required',
+        hint: 'Wired test mode requires Supabase sign-in (no mock dashboard).',
+      },
+      { status: 503 }
+    );
   }
 
   const first = greetingName.split(' ')[0] || greetingName;

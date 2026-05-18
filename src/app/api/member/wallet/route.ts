@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     }
     return runWalletForUser(ctx.supabase, {
       userId: ctx.user.id,
+      user: ctx.user,
       branch: ctx.profile?.branch ?? null,
       label,
       kind,

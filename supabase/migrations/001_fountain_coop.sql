@@ -50,6 +50,49 @@ alter table public.activities enable row level security;
 alter table public.compliance_alerts enable row level security;
 alter table public.metrics_monthly enable row level security;
 
+-- Role helpers (security definer — avoids RLS recursion on profiles)
+create or replace function public.auth_profile_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role from public.profiles where id = auth.uid() limit 1;
+$$;
+
+create or replace function public.auth_is_staff()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (
+      select role in ('super_admin', 'tenant_admin', 'group_admin')
+      from public.profiles
+      where id = auth.uid()
+      limit 1
+    ),
+    false
+  );
+$$;
+
+create or replace function public.auth_is_member()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.auth_profile_role() = 'member';
+$$;
+
+grant execute on function public.auth_profile_role() to authenticated, service_role;
+grant execute on function public.auth_is_staff() to authenticated, service_role;
+grant execute on function public.auth_is_member() to authenticated, service_role;
+
 -- Idempotent: safe to re-run in SQL Editor after a partial apply
 drop policy if exists "profiles_select" on public.profiles;
 drop policy if exists "profiles_insert_own" on public.profiles;
@@ -61,14 +104,7 @@ drop policy if exists "metrics_staff_select" on public.metrics_monthly;
 -- Profiles: own row OR admin/tenant/group can read all member data
 create policy "profiles_select"
   on public.profiles for select
-  using (
-    auth.uid() = id
-    or exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role in ('super_admin', 'tenant_admin', 'group_admin')
-    )
-  );
+  using (auth.uid() = id or public.auth_is_staff());
 
 create policy "profiles_insert_own"
   on public.profiles for insert
@@ -76,54 +112,22 @@ create policy "profiles_insert_own"
 
 create policy "profiles_update"
   on public.profiles for update
-  using (
-    auth.uid() = id
-    or exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role in ('super_admin', 'tenant_admin', 'group_admin')
-    )
-  )
-  with check (
-    auth.uid() = id
-    or exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role in ('super_admin', 'tenant_admin', 'group_admin')
-    )
-  );
+  using (auth.uid() = id or public.auth_is_staff())
+  with check (auth.uid() = id or public.auth_is_staff());
 
 -- Activities & compliance: staff only
 create policy "activities_staff_select"
   on public.activities for select
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role in ('super_admin', 'tenant_admin', 'group_admin')
-    )
-  );
+  using (public.auth_is_staff());
 
 create policy "compliance_staff_select"
   on public.compliance_alerts for select
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role in ('super_admin', 'tenant_admin', 'group_admin')
-    )
-  );
+  using (public.auth_is_staff());
 
 -- Monthly metrics: staff read
 create policy "metrics_staff_select"
   on public.metrics_monthly for select
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role in ('super_admin', 'tenant_admin', 'group_admin')
-    )
-  );
+  using (public.auth_is_staff());
 
 -- Auto-create profile on signup (optional metadata: full_name, role, member_code, phone, branch, products)
 create or replace function public.handle_new_user()
@@ -151,7 +155,18 @@ begin
     ),
     0,
     0
-  );
+  )
+  on conflict (id) do update set
+    full_name = excluded.full_name,
+    role = excluded.role,
+    member_code = coalesce(excluded.member_code, public.profiles.member_code),
+    phone = coalesce(excluded.phone, public.profiles.phone),
+    branch = coalesce(excluded.branch, public.profiles.branch),
+    status = coalesce(excluded.status, public.profiles.status),
+    products = case
+      when cardinality(excluded.products) > 0 then excluded.products
+      else public.profiles.products
+    end;
   return new;
 end;
 $$;

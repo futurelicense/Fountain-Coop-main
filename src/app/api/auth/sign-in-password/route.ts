@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       if (process.env.NODE_ENV === 'development') {
         if (process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
           body.hint =
-            'Credentials are still invalid for this Supabase user. Reset the password in Dashboard → Authentication → Users (set to demo), then sign in again.';
+            'Run `npm run seed:demo-auth` (resets demo passwords via Admin API), restart `npm run dev`, then sign in with password demo. Or reset the user in Dashboard → Authentication → Users. Until then, staff can sign in with identifier super_admin (not the email) and password demo.';
         } else {
           body.hint =
             'Cloud: add SUPABASE_SERVICE_ROLE_KEY to .env.local, run `npm run seed:demo-auth`, restart dev. Or create the user in Dashboard → Authentication (password demo). SQL-only auth inserts often fail signInWithPassword until you reset the password this way.';

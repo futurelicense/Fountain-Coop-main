@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { MemberRow, MembersListResponse } from '@/api/types';
+import { isLegacyAuthEnabled } from '@/lib/config/app-mode';
 import { MEMBERS, MEMBERS_PLATFORM_SUMMARY, MEMBERS_TOTAL_PLATFORM } from '@/lib/server/seed-data';
 import type { ProfileRow } from '@/lib/server/request-auth';
 import { resolveRequestAuth } from '@/lib/server/request-auth';
@@ -81,6 +82,16 @@ export async function GET(request: Request) {
       pageTotal: members.length,
       summary,
     } satisfies MembersListResponse);
+  }
+
+  if (!isLegacyAuthEnabled()) {
+    return NextResponse.json(
+      {
+        error: 'supabase_session_required',
+        hint: 'Wired test mode requires Supabase sign-in (no mock member list).',
+      },
+      { status: 503 }
+    );
   }
 
   const auth = ctx.auth;

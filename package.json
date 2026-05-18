@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed:demo-auth": "node scripts/seed-demo-auth.mjs"
+    "seed:demo-auth": "node scripts/seed-demo-auth.mjs",
+    "reset:wired-test": "node scripts/reset-wired-test.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",

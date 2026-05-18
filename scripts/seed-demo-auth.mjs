@@ -6,6 +6,9 @@
  *   NEXT_PUBLIC_SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY   (Dashboard → Settings → API → service_role — never expose to client)
  *
+ * If you see "Database error checking email", run first in SQL Editor:
+ *   supabase/migrations/005_delete_sql_seeded_demo_auth.sql
+ *
  * Run: npm run seed:demo-auth
  */
 import { createClient } from '@supabase/supabase-js';
@@ -32,6 +35,9 @@ loadEnvFile(join(process.cwd(), '.env'));
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+const SQL_REPAIR_HINT =
+  'Run supabase/migrations/005_delete_sql_seeded_demo_auth.sql in Supabase Dashboard → SQL Editor, then run `npm run seed:demo-auth` again.';
 
 if (!url || !serviceKey) {
   console.error(
@@ -83,6 +89,14 @@ const admin = createClient(url, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+/** Fixed ids from 002_demo_auth_users.sql — used when listUsers is broken on Cloud. */
+const LEGACY_SQL_USER_ID_BY_EMAIL = {
+  'demo-super-admin@fountain.coop': 'a1111111-1111-1111-1111-111111111101',
+  'demo-tenant-admin@fountain.coop': 'a1111111-1111-1111-1111-111111111102',
+  'demo-group-admin@fountain.coop': 'a1111111-1111-1111-1111-111111111103',
+  'demo-member@fountain.coop': 'a1111111-1111-1111-1111-111111111104',
+};
+
 const demos = [
   {
     email: 'demo-super-admin@fountain.coop',
@@ -110,26 +124,122 @@ const demos = [
   },
 ];
 
-async function upsert({ email, meta }) {
-  const { error } = await admin.auth.admin.createUser({
-    email,
+function isDatabaseAuthError(message) {
+  return /database error/i.test(String(message || ''));
+}
+
+function isAlreadyRegistered(message) {
+  return /already registered|already been registered|already exists|user already registered/i.test(
+    String(message || '')
+  );
+}
+
+async function upsertProfile(userId, meta) {
+  if (!userId) return;
+  const role = meta.role ?? 'member';
+  const products = Array.isArray(meta.products) ? meta.products : [];
+  const { error } = await admin.from('profiles').upsert(
+    {
+      id: userId,
+      full_name: meta.full_name ?? 'User',
+      role,
+      member_code: meta.member_code ?? null,
+      phone: meta.phone ?? null,
+      branch: meta.branch ?? 'Lagos Main',
+      status: meta.status ?? 'Active',
+      products,
+      savings_balance: 0,
+      loan_balance: 0,
+    },
+    { onConflict: 'id' }
+  );
+  if (error) {
+    console.warn('profile upsert:', userId, error.message);
+  }
+}
+
+async function updateById(id, email, meta) {
+  const { error } = await admin.auth.admin.updateUserById(id, {
     password: 'demo',
     email_confirm: true,
     user_metadata: meta,
   });
   if (error) {
-    const msg = String(error.message || '');
-    if (/already registered|already been registered|already exists/i.test(msg)) {
-      console.log(
-        `exists: ${email} (if login still fails, reset this user's password to "demo" in Supabase Dashboard → Authentication → Users)`
-      );
-      return true;
+    return { ok: false, message: error.message };
+  }
+  console.log('updated password:', email);
+  await upsertProfile(id, meta);
+  return { ok: true };
+}
+
+async function resolveExistingUserId(email) {
+  const { data, error } = await admin.auth.signInWithPassword({
+    email,
+    password: 'demo',
+  });
+  if (!error && data.user?.id) {
+    return data.user.id;
+  }
+  const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+    type: 'magiclink',
+    email,
+  });
+  if (!linkErr && linkData?.user?.id) {
+    return linkData.user.id;
+  }
+  return null;
+}
+
+async function upsert({ email, meta }) {
+  const normalized = email.toLowerCase();
+
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
+    email: normalized,
+    password: 'demo',
+    email_confirm: true,
+    user_metadata: meta,
+  });
+
+  if (!createError) {
+    console.log('created:', normalized);
+    await upsertProfile(created?.user?.id, meta);
+    return true;
+  }
+
+  const msg = String(createError.message || '');
+
+  if (isAlreadyRegistered(msg)) {
+    const legacyId = LEGACY_SQL_USER_ID_BY_EMAIL[normalized];
+    if (legacyId) {
+      const legacy = await updateById(legacyId, normalized, meta);
+      if (legacy.ok) return true;
+      if (!/not found/i.test(String(legacy.message || ''))) {
+        console.error('update failed:', normalized, legacy.message);
+        if (isDatabaseAuthError(legacy.message)) console.error(SQL_REPAIR_HINT);
+        return false;
+      }
     }
-    console.error('create failed:', email, msg);
+
+    const userId = await resolveExistingUserId(normalized);
+    if (userId) {
+      const fixed = await updateById(userId, normalized, meta);
+      if (fixed.ok) return true;
+      console.error('update failed:', normalized, fixed.message);
+      return false;
+    }
+
+    console.log('ok (exists):', normalized, '— password should already be demo');
+    return true;
+  }
+
+  if (isDatabaseAuthError(msg)) {
+    console.error('create failed:', normalized, msg);
+    console.error(SQL_REPAIR_HINT);
     return false;
   }
-  console.log('created:', email);
-  return true;
+
+  console.error('create failed:', normalized, msg);
+  return false;
 }
 
 let allOk = true;
@@ -140,7 +250,7 @@ for (const d of demos) {
 
 if (!allOk) {
   console.error(
-    'One or more demo users failed to seed. Verify Auth service health and key/project alignment in Supabase Dashboard.'
+    'One or more demo users failed to seed. If errors mention "Database error", run migration 005 in the SQL Editor first.'
   );
   process.exit(1);
 }

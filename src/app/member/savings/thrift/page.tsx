@@ -1,5 +1,5 @@
-import { MemberSavingsView } from '@/components/member/MemberSavingsView';
+import { MemberSavings } from '@/pages/member/MemberSavings';
 
 export default function MemberSavingsThriftPage() {
-  return <MemberSavingsView defaultTab="coop" />;
+  return <MemberSavings defaultTab="thrift" />;
 }

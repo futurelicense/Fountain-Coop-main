@@ -10,6 +10,7 @@ import {
   supabasePasswordSignIn,
 } from '@/api';
 import { getSupabaseConfig } from '@/lib/supabase/config';
+import { isLegacyAuthEnabled } from '@/lib/config/app-mode';
 import { demoSupabaseEmailForIdentifier } from '@/lib/demoSupabaseSignIn';
 import type { LoginResponse } from '@/api/types';
 
@@ -21,6 +22,7 @@ const LEGACY_IDENTIFIER_BY_DEMO_EMAIL: Record<string, string> = {
   'demo-super-admin@fountain.coop': 'super_admin',
   'demo-tenant-admin@fountain.coop': 'tenant_admin',
   'demo-group-admin@fountain.coop': 'group_admin',
+  'demo-member@fountain.coop': 'FC-1001',
 };
 
 export function LoginForm({ onLoginSuccess }: LoginFormProps) {
@@ -64,6 +66,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
           const fallbackIdentifier =
             LEGACY_IDENTIFIER_BY_DEMO_EMAIL[emailForSupabase];
           if (
+            isLegacyAuthEnabled() &&
             fallbackIdentifier &&
             supabaseErr instanceof ApiError &&
             supabaseErr.status === 401
@@ -75,6 +78,13 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
           }
           throw supabaseErr;
         }
+      }
+
+      if (!isLegacyAuthEnabled()) {
+        setError(
+          'Use your email address to sign in (e.g. demo-member@fountain.coop). Member ID–only login is disabled in wired test mode.'
+        );
+        return;
       }
 
       const session = await loginRequest(trimmed, password);

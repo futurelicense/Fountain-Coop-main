@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
+import { ensureProfileForUser } from '@/lib/server/ensure-profile';
 
 export async function runWalletForUser(
   db: SupabaseClient,
   opts: {
     userId: string;
+    user?: User;
     branch: string | null;
     label?: string;
     kind: 'deposit' | 'withdraw';
@@ -12,15 +14,33 @@ export async function runWalletForUser(
     meta?: Record<string, unknown>;
   }
 ) {
-  const { userId, branch, label, kind, amount, meta } = opts;
+  const { userId, branch, label, kind, amount, meta, user } = opts;
 
-  const { data: row, error: readErr } = await db
+  let { data: row, error: readErr } = await db
     .from('profiles')
     .select('savings_balance')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
+
+  if ((!row || readErr) && user) {
+    await ensureProfileForUser(db, user);
+    const retry = await db
+      .from('profiles')
+      .select('savings_balance')
+      .eq('id', userId)
+      .maybeSingle();
+    row = retry.data;
+    readErr = retry.error;
+  }
+
   if (readErr || !row) {
-    return NextResponse.json({ error: 'profile_not_found' }, { status: 404 });
+    return NextResponse.json(
+      {
+        error: 'profile_not_found',
+        hint: 'Sign out and sign in again as demo-member@fountain.coop (password demo), or run migration 007 in Supabase SQL Editor.',
+      },
+      { status: 404 }
+    );
   }
 
   const cur = Number(row.savings_balance ?? 0);

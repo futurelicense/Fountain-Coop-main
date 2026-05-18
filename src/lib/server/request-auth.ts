@@ -1,8 +1,21 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getAuthContext, type TokenPayload } from '@/lib/server/auth-helpers';
+import { ensureProfileForUser } from '@/lib/server/ensure-profile';
 import type { UserRole } from '@/api/types';
 import { getSupabaseConfig } from '@/lib/supabase/config';
+
+function isSupabaseNetworkError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes('fetch failed') ||
+    msg.includes('connect timeout') ||
+    msg.includes('econnrefused') ||
+    msg.includes('enotfound') ||
+    msg.includes('und_err_connect_timeout')
+  );
+}
 
 function bearerFromRequest(request: Request): string | null {
   const header = request.headers.get('authorization');
@@ -68,22 +81,31 @@ export async function resolveRequestAuth(
    */
   if (cfg && bearer && looksLikeJwt(bearer)) {
     const verify = createClient(cfg.url, cfg.anonKey);
-    const { data: userData, error: userErr } = await verify.auth.getUser(bearer);
-    if (!userErr && userData.user) {
-      const supabase = createClient(cfg.url, cfg.anonKey, {
-        global: { headers: { Authorization: `Bearer ${bearer}` } },
-      });
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userData.user.id)
-        .maybeSingle();
-      return {
-        kind: 'supabase',
-        supabase,
-        user: userData.user,
-        profile: profile as ProfileRow | null,
-      };
+    try {
+      const { data: userData, error: userErr } = await verify.auth.getUser(bearer);
+      if (!userErr && userData.user) {
+        const supabase = createClient(cfg.url, cfg.anonKey, {
+          global: { headers: { Authorization: `Bearer ${bearer}` } },
+        });
+        let profile = (
+          await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userData.user.id)
+            .maybeSingle()
+        ).data as ProfileRow | null;
+        if (!profile) {
+          profile = await ensureProfileForUser(supabase, userData.user);
+        }
+        return {
+          kind: 'supabase',
+          supabase,
+          user: userData.user,
+          profile,
+        };
+      }
+    } catch (e) {
+      if (!isSupabaseNetworkError(e)) throw e;
     }
   }
 
@@ -91,16 +113,21 @@ export async function resolveRequestAuth(
   if (supabase) {
     const user = await getUserFromBearerOrCookies(supabase, request);
     if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+      let profile = (
+        await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle()
+      ).data as ProfileRow | null;
+      if (!profile) {
+        profile = await ensureProfileForUser(supabase, user);
+      }
       return {
         kind: 'supabase',
         supabase,
         user,
-        profile: profile as ProfileRow | null,
+        profile,
       };
     }
   }

@@ -30,6 +30,7 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const subtype = searchParams.get('subtype')?.trim();
 
+  const role = ctx.profile?.role ?? 'member';
   let q = ctx.supabase
     .from('operational_items')
     .select('*')
@@ -38,9 +39,22 @@ export async function GET(
   if (subtype) {
     q = q.eq('subtype', subtype);
   }
+  if (role === 'member') {
+    q = q.eq('owner_id', ctx.user.id);
+  }
   const { data, error } = await q;
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const hint = /infinite recursion/i.test(error.message)
+      ? 'Run supabase/migrations/009_fix_rls_recursion.sql in Supabase SQL Editor.'
+      : /operational_items|relation.*does not exist/i.test(error.message)
+        ? 'Run supabase/migrations/003_operational_items.sql in Supabase SQL Editor.'
+        : /profiles|policy/i.test(error.message)
+          ? 'Ensure your member profile exists (sign in as demo-member@fountain.coop) or run migration 007_backfill_profiles.sql.'
+          : undefined;
+    return NextResponse.json(
+      { error: error.message, ...(hint ? { hint } : {}) },
+      { status: 500 }
+    );
   }
   return NextResponse.json(data ?? []);
 }

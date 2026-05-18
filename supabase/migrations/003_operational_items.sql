@@ -21,75 +21,36 @@ create index if not exists operational_items_owner_idx
 
 alter table public.operational_items enable row level security;
 
--- Staff: full CRUD
+-- Staff: full CRUD (uses auth_is_staff() from 001 — no profiles subquery)
 create policy "operational_items_staff_select"
   on public.operational_items for select
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role in ('super_admin', 'tenant_admin', 'group_admin')
-    )
-  );
+  using (public.auth_is_staff());
 
 create policy "operational_items_staff_insert"
   on public.operational_items for insert
-  with check (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role in ('super_admin', 'tenant_admin', 'group_admin')
-    )
-  );
+  with check (public.auth_is_staff());
 
 create policy "operational_items_staff_update"
   on public.operational_items for update
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role in ('super_admin', 'tenant_admin', 'group_admin')
-    )
-  )
-  with check (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role in ('super_admin', 'tenant_admin', 'group_admin')
-    )
-  );
+  using (public.auth_is_staff())
+  with check (public.auth_is_staff());
 
 create policy "operational_items_staff_delete"
   on public.operational_items for delete
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role in ('super_admin', 'tenant_admin', 'group_admin')
-    )
-  );
+  using (public.auth_is_staff());
 
 -- Members: read catalog + own rows; write own non-catalog only
 create policy "operational_items_member_select"
   on public.operational_items for select
   using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'member'
-    )
-    and (
-      is_catalog = true
-      or owner_id = auth.uid()
-    )
+    public.auth_is_member()
+    and (is_catalog = true or owner_id = auth.uid())
   );
 
 create policy "operational_items_member_insert"
   on public.operational_items for insert
   with check (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'member'
-    )
+    public.auth_is_member()
     and is_catalog = false
     and owner_id = auth.uid()
   );
@@ -97,18 +58,12 @@ create policy "operational_items_member_insert"
 create policy "operational_items_member_update"
   on public.operational_items for update
   using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'member'
-    )
+    public.auth_is_member()
     and is_catalog = false
     and owner_id = auth.uid()
   )
   with check (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'member'
-    )
+    public.auth_is_member()
     and is_catalog = false
     and owner_id = auth.uid()
   );
@@ -116,10 +71,7 @@ create policy "operational_items_member_update"
 create policy "operational_items_member_delete"
   on public.operational_items for delete
   using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'member'
-    )
+    public.auth_is_member()
     and is_catalog = false
     and owner_id = auth.uid()
   );

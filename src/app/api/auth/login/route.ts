@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isLegacyAuthEnabled } from '@/lib/config/app-mode';
 import {
   encodeToken,
   findMemberByIdentifier,
@@ -6,6 +7,16 @@ import {
 } from '@/lib/server/auth-helpers';
 
 export async function POST(request: Request) {
+  if (!isLegacyAuthEnabled()) {
+    return NextResponse.json(
+      {
+        error: 'legacy_auth_disabled',
+        hint:
+          'Wired test mode: sign in with Supabase email + password (demo-member@fountain.coop / demo).',
+      },
+      { status: 403 }
+    );
+  }
   const body = (await request.json().catch(() => null)) as {
     identifier?: string;
     password?: string;
