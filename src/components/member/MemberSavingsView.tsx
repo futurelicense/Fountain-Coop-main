@@ -887,5 +887,7 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
       </BottomSheet>
     </div>
   );
-
 }
+
+/** @deprecated Use `MemberSavings` — kept for older imports */
+export { MemberSavings as MemberSavingsView };
