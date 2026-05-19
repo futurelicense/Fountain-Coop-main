@@ -100,7 +100,6 @@ export function MemberHome() {
 
   return (
     <div className="space-y-6 -mt-6 relative z-10">
-      {/* Balance hero — overlaps header for a wallet-style layout */}
       <div className="bg-white rounded-2xl shadow-lg border border-fountain-gray-100 overflow-hidden">
         <div className="bg-gradient-to-br from-fountain-dark via-fountain-blue to-fountain-teal p-5 text-white">
           <div className="flex items-center justify-between gap-2 mb-1">
