@@ -475,11 +475,9 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
                     className={`w-full aspect-square rounded-md flex items-center justify-center text-[9px] font-bold ${
                       status === 'paid'
                         ? 'bg-fountain-green text-white'
-                        : status === 'missed'
-                          ? 'bg-fountain-red/20 text-fountain-red'
-                          : status === 'today'
-                            ? 'bg-fountain-blue text-white ring-2 ring-fountain-blue/30'
-                            : 'bg-fountain-gray-100 text-fountain-gray-400'
+                        : status === 'today'
+                          ? 'bg-fountain-blue text-white ring-2 ring-fountain-blue/30'
+                          : 'bg-fountain-gray-100 text-fountain-gray-400'
                     }`}
                   >
                     {idx + 1}
