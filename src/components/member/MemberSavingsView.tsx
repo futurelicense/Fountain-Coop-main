@@ -123,7 +123,6 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
   }, [searchParams, ledger, loadProfile]);
 
   const savingsBalance = profile?.savings_balance ?? 0;
-  const loanBalance = profile?.loan_balance ?? 0;
 
   const coopLedgerEntries = useMemo(() => {
     return [...ledger.items]
