@@ -109,6 +109,7 @@ export default function LoansPage() {
                 <th className="px-4 py-3 font-medium">Amount</th>
                 <th className="px-4 py-3 font-medium">Applied</th>
                 <th className="px-4 py-3 font-medium">Guarantors</th>
+                <th className="px-4 py-3 font-medium">Collateral</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium text-center">Action</th>
               </tr>
@@ -123,6 +124,20 @@ export default function LoansPage() {
                     <td className="px-4 py-3 font-medium text-fountain-gray-900">{formatNaira(pickNum(app, 'amount'))}</td>
                     <td className="px-4 py-3 text-fountain-gray-600">{pickStr(app, 'appliedDate')}</td>
                     <td className="px-4 py-3 text-fountain-gray-600">{pickStr(app, 'guarantors')}</td>
+                    <td className="px-4 py-3 text-fountain-gray-600 max-w-[200px]">
+                      {app.requiresCollateral === true || pickNum(app, 'amount') > 1_000_000 ? (
+                        <span className="text-xs">
+                          {pickStr(app, 'collateralDescription', '—')}
+                          {pickNum(app, 'collateralValue') > 0 ? (
+                            <span className="block text-fountain-gray-500 mt-0.5">
+                              {formatNaira(pickNum(app, 'collateralValue'))}
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td className="px-4 py-3">{getStatusBadge(pickStr(app, 'status', 'Pending'))}</td>
                     <td className="px-4 py-3 text-center space-x-2">
                       <button type="button" className="text-fountain-blue hover:text-fountain-dark text-xs font-medium" onClick={() => void applications.patchRow(row.id, { status: 'Approved' })}>Approve</button>

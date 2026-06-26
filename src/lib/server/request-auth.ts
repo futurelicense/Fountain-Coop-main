@@ -51,6 +51,7 @@ export type ProfileRow = {
   products: string[] | null;
   savings_balance: number | null;
   loan_balance: number | null;
+  created_at?: string | null;
 };
 
 export async function getUserFromBearerOrCookies(

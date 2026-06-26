@@ -30,6 +30,7 @@ export default function TransactionsPage() {
       case 'Thrift': return 'bg-fountain-green/10 text-fountain-green border-fountain-green/20';
       case 'Ajo/Osusu': return 'bg-fountain-amber/10 text-fountain-amber border-fountain-amber/20';
       case 'Packs': return 'bg-purple-500/10 text-purple-500 border-purple-500/20';
+      case 'Investment': return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
       case 'Recovery': return 'bg-fountain-red/10 text-fountain-red border-fountain-red/20';
       default: return 'bg-fountain-gray-100 text-fountain-gray-600 border-fountain-gray-200';
     }

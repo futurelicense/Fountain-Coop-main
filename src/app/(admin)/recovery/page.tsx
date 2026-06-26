@@ -22,6 +22,7 @@ import {
   type AgingBucketSlice,
 } from '@/components/recovery/AgingBuckets';
 import { RecoveryTrendChart } from '@/components/recovery/RecoveryTrendChart';
+import { LegacyDebtPanel } from '@/components/recovery/LegacyDebtPanel';
 import { useOperationalRecords } from '@/hooks/useOperationalRecords';
 import { pickNum, pickObj, pickStr } from '@/lib/pickData';
 
@@ -101,6 +102,13 @@ export default function RecoveryPage() {
       </div>
 
       {loadError ? <p className="text-sm text-fountain-red bg-fountain-red/5 border border-fountain-red/20 rounded-lg px-4 py-3">{loadError}</p> : null}
+
+      <LegacyDebtPanel />
+
+      <div className="border-t border-fountain-gray-200 pt-6">
+        <h3 className="text-lg font-semibold text-fountain-gray-900 mb-1">Live recovery cases</h3>
+        <p className="text-sm text-fountain-gray-500 mb-4">New overdue loans tracked in the system after go-live.</p>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard title="Total Overdue" value={formatNaira(totalOverdue)} icon={<AlertTriangleIcon className="w-6 h-6" />} iconBgColor="bg-fountain-red/10" iconColor="text-fountain-red" />

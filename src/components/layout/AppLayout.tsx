@@ -19,18 +19,19 @@ export function AppLayout({ children, currentUser }: AppLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const safePathname = pathname ?? '';
   const currentPage =
-    pathname.replace(/^\//, '').split('/').filter(Boolean)[0] || 'dashboard';
+    safePathname.replace(/^\//, '').split('/').filter(Boolean)[0] || 'dashboard';
 
   const getPageTitle = (page: string) => {
     if (page === 'dashboard') {
-      if (pathname.startsWith('/dashboard/super-admin')) {
+      if (safePathname.startsWith('/dashboard/super-admin')) {
         return 'Super Admin Dashboard';
       }
-      if (pathname.startsWith('/dashboard/tenant-admin')) {
+      if (safePathname.startsWith('/dashboard/tenant-admin')) {
         return 'Tenant Admin Dashboard';
       }
-      if (pathname.startsWith('/dashboard/group-admin')) {
+      if (safePathname.startsWith('/dashboard/group-admin')) {
         return 'Group Admin Dashboard';
       }
     }
@@ -41,10 +42,12 @@ export function AppLayout({ children, currentUser }: AppLayoutProps) {
       thrift: 'Thrift Module',
       ajo: 'Ajo/Osusu Cycles',
       packs: 'Contribution Packs',
+      investments: 'Investment Products',
       loans: 'Loan Management',
       recovery: 'Recovery & Collections',
       branches: 'Branch Operations',
       transactions: 'Transactions Ledger',
+      support: 'Member Support',
       reports: 'Reports & Analytics',
       compliance: 'Compliance & Audit',
       notifications: 'Notifications',

@@ -2,14 +2,15 @@ import {
   CoinsIcon,
   RepeatIcon,
   PackageIcon,
-  TrendingUpIcon } from
-'lucide-react';
+  TrendingUpIcon,
+} from 'lucide-react';
 import type { DashboardProductsSummary } from '@/api/types';
 
 const EMPTY: DashboardProductsSummary = {
   thrift: { activePlans: 0, collected: 0 },
   ajo: { activeCycles: 0, participants: 0 },
   packs: { activePacks: 0, slotsFilled: 0 },
+  investments: { activeProducts: 0, totalInvested: 0, activeInvestors: 0 },
 };
 
 interface ProductsSummaryProps {
@@ -19,7 +20,9 @@ interface ProductsSummaryProps {
 export function ProductsSummary({ data }: ProductsSummaryProps) {
   const productsSummary = data ?? EMPTY;
   const formatNaira = (amount: number) => {
-    return `₦${(amount / 1000000).toFixed(1)}M`;
+    if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1)}M`;
+    if (amount >= 1_000) return `₦${(amount / 1_000).toFixed(0)}K`;
+    return `₦${amount.toLocaleString('en-NG')}`;
   };
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -74,22 +77,23 @@ export function ProductsSummary({ data }: ProductsSummaryProps) {
         </div>
       </div>
 
-      <div className="bg-fountain-gray-50 border border-fountain-gray-200 rounded-xl p-4 shadow-sm flex items-center space-x-4 opacity-75">
-        <div className="p-3 bg-fountain-gray-200 text-fountain-gray-500 rounded-lg">
+      <div className="bg-white border border-fountain-gray-200 rounded-xl p-4 shadow-sm flex items-center space-x-4">
+        <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-lg">
           <TrendingUpIcon className="w-6 h-6" />
         </div>
         <div>
           <p className="text-xs font-medium text-fountain-gray-500 uppercase tracking-wider">
             Investments
           </p>
-          <p className="text-sm font-medium text-fountain-gray-600 mt-1">
-            Coming Soon
+          <p className="text-lg font-bold text-fountain-gray-900">
+            {productsSummary.investments.activeProducts}
           </p>
-          <p className="text-xs text-fountain-gray-400 mt-0.5">
-            Phase 3 Feature
+          <p className="text-xs text-fountain-gray-600 mt-0.5">
+            {formatNaira(productsSummary.investments.totalInvested)} ·{' '}
+            {productsSummary.investments.activeInvestors} investors
           </p>
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 }

@@ -5,6 +5,8 @@ export const memberPaths = {
   savingsThrift: '/member/savings/thrift',
   loans: '/member/loans',
   loanApply: '/member/loans/apply',
+  investments: '/member/investments',
   activity: '/member/activity',
+  support: '/member/support',
   profile: '/member/profile',
 } as const;

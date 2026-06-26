@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "seed:demo-auth": "node scripts/seed-demo-auth.mjs",
+    "export:legacy-csv": "node scripts/export-legacy-recovery-csv.mjs",
+    "verify:legacy-sync": "node scripts/verify-legacy-recovery-sync.mjs",
     "reset:wired-test": "node scripts/reset-wired-test.mjs"
   },
   "dependencies": {

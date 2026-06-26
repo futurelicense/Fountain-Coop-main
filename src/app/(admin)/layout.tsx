@@ -3,11 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { clearToken, getToken, setToken } from '@/api/session';
+import { clearAuthSession, resolveAuthToken } from '@/api/auth-session';
 import { fetchMe } from '@/api';
 import type { AuthUser } from '@/api/types';
 import { formatRoleLabel } from '@/lib/roleLabel';
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 
 export default function AdminGroupLayout({
   children,
@@ -21,15 +20,8 @@ export default function AdminGroupLayout({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const supabase = getSupabaseBrowserClient();
-      if (supabase) {
-        const { data } = await supabase.auth.getSession();
-        if (!cancelled && data.session?.access_token) {
-          setToken(data.session.access_token);
-        }
-      }
+      const token = await resolveAuthToken();
       if (cancelled) return;
-      const token = getToken();
       if (!token) {
         router.replace('/login');
         return;
@@ -45,7 +37,7 @@ export default function AdminGroupLayout({
         setReady(true);
       } catch {
         if (!cancelled) {
-          clearToken();
+          await clearAuthSession();
           router.replace('/login');
         }
       }

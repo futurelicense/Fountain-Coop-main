@@ -45,7 +45,7 @@ export async function PATCH(
 
   const { data: existing, error: loadErr } = await ctx.supabase
     .from('operational_items')
-    .select('id, module, data')
+    .select('id, module, subtype, data')
     .eq('id', id)
     .eq('module', module)
     .maybeSingle();
@@ -57,7 +57,18 @@ export async function PATCH(
     existing.data && typeof existing.data === 'object'
       ? (existing.data as Record<string, unknown>)
       : {};
-  const merged = { ...prev, ...patch };
+
+  let merged: Record<string, unknown> = { ...prev, ...patch };
+  const subtype = String(existing.subtype ?? '');
+  if (
+    module === 'recovery' &&
+    (subtype === 'legacyThriftTransaction' ||
+      subtype === 'legacyWithdrawalTransaction' ||
+      subtype === 'legacyOwingRecord')
+  ) {
+    const { mergeLegacyDebtPatch } = await import('@/lib/legacy-recovery');
+    merged = mergeLegacyDebtPatch(prev, patch) as unknown as Record<string, unknown>;
+  }
 
   const { data: updated, error } = await ctx.supabase
     .from('operational_items')

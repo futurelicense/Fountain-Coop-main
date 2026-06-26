@@ -18,9 +18,6 @@ export function clearToken(): void {
 
 /** Clears demo token and signs out Supabase browser session if configured. */
 export async function signOutSession(): Promise<void> {
-  clearToken();
-  if (typeof window === 'undefined') return;
-  const { getSupabaseBrowserClient } = await import('@/lib/supabase/browser');
-  const client = getSupabaseBrowserClient();
-  if (client) await client.auth.signOut();
+  const { clearAuthSession } = await import('./auth-session');
+  await clearAuthSession();
 }

@@ -4,6 +4,7 @@ export const OPERATIONS_MODULES = [
   'thrift',
   'ajo',
   'packs',
+  'investments',
   'loans',
   'recovery',
   'branches',
@@ -11,6 +12,7 @@ export const OPERATIONS_MODULES = [
   'reports',
   'compliance',
   'notifications',
+  'support',
   'member',
 ] as const;
 

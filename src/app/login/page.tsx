@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LoginForm } from '@/components/auth/LoginForm';
-import { clearToken, getToken, setToken } from '@/api/session';
+import { clearAuthSession, resolveAuthToken } from '@/api/auth-session';
+import { getToken } from '@/api/session';
 import { fetchMe } from '@/api';
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,16 +16,8 @@ export default function LoginPage() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const supabase = getSupabaseBrowserClient();
-      if (supabase) {
-        setChecking(true);
-        const { data } = await supabase.auth.getSession();
-        if (cancelled) return;
-        if (data.session?.access_token) {
-          setToken(data.session.access_token);
-        }
-      }
-      const token = getToken();
+      const token = await resolveAuthToken();
+      if (cancelled) return;
       if (!token) {
         setChecking(false);
         return;
@@ -35,7 +27,7 @@ export default function LoginPage() {
         if (cancelled) return;
         router.replace(user.role === 'member' ? '/member' : '/dashboard');
       } catch {
-        clearToken();
+        await clearAuthSession();
         setChecking(false);
       }
     })();

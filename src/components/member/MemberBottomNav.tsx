@@ -15,6 +15,8 @@ function tabFromPath(pathname: string): string {
   if (pathname === '/member' || pathname === '/member/') return 'home';
   if (pathname.startsWith('/member/savings')) return 'savings';
   if (pathname.startsWith('/member/loans')) return 'loans';
+  if (pathname.startsWith('/member/investments')) return 'investments';
+  if (pathname.startsWith('/member/support')) return 'support';
   if (pathname.startsWith('/member/activity')) return 'activity';
   if (pathname.startsWith('/member/profile')) return 'profile';
   return 'home';
@@ -22,7 +24,7 @@ function tabFromPath(pathname: string): string {
 
 export function MemberBottomNav() {
   const pathname = usePathname();
-  const currentTab = tabFromPath(pathname);
+  const currentTab = tabFromPath(pathname ?? '');
 
   const tabs = [
     { id: 'home', href: memberPaths.home, label: 'Home', icon: HomeIcon },

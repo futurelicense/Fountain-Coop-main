@@ -12,6 +12,7 @@ const emptyProductsSummary = {
   thrift: { activePlans: 0, collected: 0 },
   ajo: { activeCycles: 0, participants: 0 },
   packs: { activePacks: 0, slotsFilled: 0 },
+  investments: { activeProducts: 0, totalInvested: 0, activeInvestors: 0 },
 };
 
 export async function GET(request: Request) {

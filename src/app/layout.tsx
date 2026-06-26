@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AuthSessionSync } from '@/components/auth/AuthSessionSync';
 
 export const metadata: Metadata = {
   title: 'Fountain Coop Unified Financial System',
@@ -13,7 +14,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthSessionSync />
+        {children}
+      </body>
     </html>
   );
 }

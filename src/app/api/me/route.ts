@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   profileToAuthUser,
   resolveRequestAuth,
+  type ProfileRow,
 } from '@/lib/server/request-auth';
 
 export async function GET(request: Request) {
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
             member_code: pr.member_code,
             status: pr.status,
             products: pr.products ?? [],
+            member_since: (pr as ProfileRow & { created_at?: string }).created_at ?? null,
           }
         : null,
     });

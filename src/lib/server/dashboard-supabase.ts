@@ -6,6 +6,7 @@ import type {
   MemberGrowthPoint,
 } from '@/api/types';
 import type { ProfileRow } from '@/lib/server/request-auth';
+import { pickNum, pickStr } from '@/lib/pickData';
 
 function formatTrend(current: number, previous: number): {
   trend: string;
@@ -136,6 +137,7 @@ export async function buildDashboardFromSupabase(
       activePacks: Math.max(1, packsN),
       slotsFilled: packsN * 6,
     },
+    investments: await loadInvestmentSummary(supabase),
   };
 
   const branchMap = new Map<
@@ -217,4 +219,35 @@ function formatRelativeTime(iso: string): string {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs} hours ago`;
   return d.toLocaleDateString('en-NG');
+}
+
+async function loadInvestmentSummary(supabase: SupabaseClient) {
+  const { data: rows, error } = await supabase
+    .from('operational_items')
+    .select('subtype, data')
+    .eq('module', 'investments');
+
+  if (error || !rows) {
+    return { activeProducts: 0, totalInvested: 0, activeInvestors: 0 };
+  }
+
+  const products = rows.filter((r) => r.subtype === 'investmentProduct');
+  const holdings = rows.filter((r) => r.subtype === 'memberInvestment');
+  const activeHoldings = holdings.filter(
+    (h) => pickStr(h.data as Record<string, unknown>, 'status') === 'Active'
+  );
+  const investorIds = new Set(
+    activeHoldings
+      .map((h) => pickStr(h.data as Record<string, unknown>, 'memberId'))
+      .filter(Boolean)
+  );
+
+  return {
+    activeProducts: products.length,
+    totalInvested: activeHoldings.reduce(
+      (s, h) => s + pickNum(h.data as Record<string, unknown>, 'principal'),
+      0
+    ),
+    activeInvestors: investorIds.size,
+  };
 }

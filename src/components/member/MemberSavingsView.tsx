@@ -41,7 +41,7 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
     defaultTab === 'thrift' ? 'thrift' : 'coop'
   );
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
+    const tabParam = searchParams?.get('tab');
     if (tabParam === 'thrift' || defaultTab === 'thrift') {
       setActiveTab('thrift');
     } else {
@@ -83,7 +83,7 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
 
   useEffect(() => {
     const reference =
-      searchParams.get('reference') ?? searchParams.get('trxref') ?? '';
+      searchParams?.get('reference') ?? searchParams?.get('trxref') ?? '';
     if (!reference) return;
     setWalletError(null);
     setPaystackVerifying(true);

@@ -30,7 +30,6 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const subtype = searchParams.get('subtype')?.trim();
 
-  const role = ctx.profile?.role ?? 'member';
   let q = ctx.supabase
     .from('operational_items')
     .select('*')
@@ -38,9 +37,6 @@ export async function GET(
     .order('created_at', { ascending: false });
   if (subtype) {
     q = q.eq('subtype', subtype);
-  }
-  if (role === 'member') {
-    q = q.eq('owner_id', ctx.user.id);
   }
   const { data, error } = await q;
   if (error) {
@@ -102,6 +98,40 @@ export async function POST(
         : String(body.owner_id);
   } else {
     ownerId = ctx.user.id;
+  }
+
+  if (
+    module === 'loans' &&
+    subtype === 'loanApplication' &&
+    !isStaff
+  ) {
+    const { assertValidMemberLoanApplication } = await import(
+      '@/lib/server/loan-eligibility-server'
+    );
+    try {
+      await assertValidMemberLoanApplication(ctx.supabase, ctx.user.id, data);
+    } catch (e) {
+      const code = e instanceof Error ? e.message : 'loan_application_invalid';
+      return NextResponse.json({ error: code }, { status: 403 });
+    }
+  }
+
+  if (
+    module === 'investments' &&
+    subtype === 'investmentApplication' &&
+    !isStaff
+  ) {
+    const { assertMemberCanApplyForInvestment } = await import(
+      '@/lib/server/investment-entry-fee'
+    );
+    try {
+      await assertMemberCanApplyForInvestment(ctx.supabase, ctx.user.id);
+    } catch {
+      return NextResponse.json(
+        { error: 'investment_entry_fee_required' },
+        { status: 403 }
+      );
+    }
   }
 
   const row = {

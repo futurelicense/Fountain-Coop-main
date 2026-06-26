@@ -21,6 +21,8 @@ export interface MeProfile {
   member_code: string | null;
   status: string | null;
   products: string[];
+  /** ISO timestamp from Supabase `profiles.created_at`. */
+  member_since?: string | null;
 }
 
 export interface MeResponse {
@@ -116,6 +118,11 @@ export interface DashboardProductsSummary {
   thrift: { activePlans: number; collected: number };
   ajo: { activeCycles: number; participants: number };
   packs: { activePacks: number; slotsFilled: number };
+  investments: {
+    activeProducts: number;
+    totalInvested: number;
+    activeInvestors: number;
+  };
 }
 
 export interface DashboardBranchRow {

@@ -3,9 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MemberLayout } from '@/components/member/MemberLayout';
-import { clearToken, getToken, setToken } from '@/api/session';
+import { clearAuthSession, resolveAuthToken } from '@/api/auth-session';
 import { fetchMe } from '@/api';
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 
 export default function MemberSectionLayout({
   children,
@@ -19,15 +18,8 @@ export default function MemberSectionLayout({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const supabase = getSupabaseBrowserClient();
-      if (supabase) {
-        const { data } = await supabase.auth.getSession();
-        if (!cancelled && data.session?.access_token) {
-          setToken(data.session.access_token);
-        }
-      }
+      const token = await resolveAuthToken();
       if (cancelled) return;
-      const token = getToken();
       if (!token) {
         router.replace('/login');
         return;
@@ -39,7 +31,7 @@ export default function MemberSectionLayout({
         setReady(true);
       } catch {
         if (!cancelled) {
-          clearToken();
+          await clearAuthSession();
           router.replace('/login');
         }
       }

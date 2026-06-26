@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getSupabaseConfig } from '@/lib/supabase/config';
 
 function isSupabaseConnectionError(err: unknown): boolean {
@@ -43,7 +43,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'email_and_password_required' }, { status: 400 });
   }
 
-  const supabase = createClient(cfg.url, cfg.anonKey);
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) {
+    return NextResponse.json(
+      { error: 'supabase_not_configured' },
+      { status: 503 }
+    );
+  }
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,

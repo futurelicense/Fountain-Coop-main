@@ -18,6 +18,7 @@ export default function ReportsPage() {
       case 'Ajo/Osusu': return 'bg-fountain-amber/10 text-fountain-amber';
       case 'Packs': return 'bg-purple-500/10 text-purple-500';
       case 'Loans': return 'bg-blue-500/10 text-blue-500';
+      case 'Investment': return 'bg-emerald-500/10 text-emerald-600';
       case 'Recovery': return 'bg-fountain-red/10 text-fountain-red';
       case 'Branches': return 'bg-indigo-500/10 text-indigo-500';
       case 'Executive': return 'bg-fountain-dark/10 text-fountain-dark';

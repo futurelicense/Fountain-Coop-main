@@ -6,6 +6,7 @@ import {
   ApiError,
   fetchMe,
   loginRequest,
+  persistSupabaseSession,
   setToken,
   supabasePasswordSignIn,
 } from '@/api';
@@ -54,11 +55,15 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
       if (supabaseCfg && emailForSupabase) {
         try {
           const data = await supabasePasswordSignIn(emailForSupabase, password);
-          const access = data.access_token;
-          if (access) setToken(access);
+          if (data.access_token && data.refresh_token) {
+            await persistSupabaseSession({
+              access_token: data.access_token,
+              refresh_token: data.refresh_token,
+            });
+          }
           const me = await fetchMe();
           onLoginSuccess({
-            token: access ?? '',
+            token: data.access_token ?? '',
             user: me.user,
           });
           return;
@@ -145,15 +150,14 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label className="block text-sm font-medium text-fountain-gray-700 mb-1.5">
-                Member ID or Phone
+                Email address
               </label>
               <input
                 type="text"
                 autoComplete="username"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="e.g. super_admin or FC-1001"
-                className="w-full px-4 py-3 bg-fountain-gray-50 border border-fountain-gray-200 rounded-xl text-sm outline-none focus:border-fountain-blue focus:ring-2 focus:ring-fountain-blue/20 transition-all placeholder:text-fountain-gray-400"
+                className="w-full px-4 py-3 bg-fountain-gray-50 border border-fountain-gray-200 rounded-xl text-sm outline-none focus:border-fountain-blue focus:ring-2 focus:ring-fountain-blue/20 transition-all"
               />
             </div>
 
@@ -183,15 +187,6 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 </button>
               </div>
             </div>
-
-            <p className="text-[11px] text-fountain-gray-500 leading-relaxed">
-              Demo staff: <span className="font-mono">super_admin</span>,{' '}
-              <span className="font-mono">tenant_admin</span>, or{' '}
-              <span className="font-mono">group_admin</span> with password{' '}
-              <span className="font-mono">demo</span>. Members:{' '}
-              <span className="font-mono">FC-1001</span> (or matching phone)
-              with <span className="font-mono">demo</span>.
-            </p>
 
             {error && (
               <p className="text-sm text-fountain-red font-medium">{error}</p>
@@ -228,12 +223,14 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
         <p className="text-center text-xs text-fountain-gray-400 mt-6">
           Don&apos;t have an account?{' '}
-          <button
-            type="button"
+          <a
+            href="https://chat.whatsapp.com/LnlAL4epJDD8lx0tEdRP0E?s=cl&p=i&mlu=2"
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-fountain-blue font-semibold hover:underline"
           >
             Contact your cooperative
-          </button>
+          </a>
         </p>
       </div>
     </div>

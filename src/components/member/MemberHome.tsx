@@ -7,11 +7,12 @@ import {
   PiggyBankIcon,
   HandCoinsIcon,
   CoinsIcon,
-  ArrowUpRightIcon,
   ArrowDownLeftIcon,
   EyeIcon,
   EyeOffIcon,
   ChevronRightIcon,
+  HeadphonesIcon,
+  TrendingUpIcon,
   RefreshCwIcon,
   Loader2Icon,
   SparklesIcon,
@@ -146,7 +147,7 @@ export function MemberHome() {
           </p>
         </div>
 
-        <div className="grid grid-cols-4 divide-x divide-fountain-gray-100 bg-fountain-gray-50/80">
+        <div className="grid grid-cols-2 divide-x divide-fountain-gray-100 bg-fountain-gray-50/80">
           {[
             {
               label: 'Deposit',
@@ -154,19 +155,9 @@ export function MemberHome() {
               onClick: () => router.push(memberPaths.savings),
             },
             {
-              label: 'Withdraw',
-              icon: ArrowUpRightIcon,
-              onClick: () => router.push(memberPaths.savings),
-            },
-            {
-              label: 'Thrift',
-              icon: CoinsIcon,
-              onClick: () => router.push(memberPaths.savingsThrift),
-            },
-            {
-              label: 'Loans',
-              icon: HandCoinsIcon,
-              onClick: () => router.push(memberPaths.loans),
+              label: 'Contact Admin',
+              icon: HeadphonesIcon,
+              onClick: () => router.push(memberPaths.support),
             },
           ].map((action) => (
             <button
@@ -232,16 +223,22 @@ export function MemberHome() {
             accent="teal"
             onClick={() => router.push(memberPaths.savingsThrift)}
           />
-          <div className="col-span-2">
-            <HomeProductCard
-              icon={HandCoinsIcon}
-              label="Loans"
-              value={showBalance ? formatNaira(loanBalance) : '••••'}
-              hint={loanBalance > 0 ? 'Outstanding balance' : 'No active loan'}
-              accent="blue"
-              onClick={() => router.push(memberPaths.loans)}
-            />
-          </div>
+          <HomeProductCard
+            icon={HandCoinsIcon}
+            label="Loans"
+            value={showBalance ? formatNaira(loanBalance) : '••••'}
+            hint={loanBalance > 0 ? 'Outstanding balance' : 'No active loan'}
+            accent="blue"
+            onClick={() => router.push(memberPaths.loans)}
+          />
+          <HomeProductCard
+            icon={TrendingUpIcon}
+            label="Investments"
+            value="View options"
+            hint="Charging units · Ajo foodstuffs"
+            accent="green"
+            onClick={() => router.push(memberPaths.investments)}
+          />
         </div>
       </section>
 
