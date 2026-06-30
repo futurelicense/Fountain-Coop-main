@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { FOODSTUFFS_DEFAULTS } from '@/lib/investment-products';
 import { pickNum, pickStr } from '@/lib/pickData';
+import { todayIsoNg } from '@/lib/server/date-ng';
 import { payFoodstuffsDailyContribution } from '@/lib/server/foodstuffs-subscription';
 
 const OPS_SETTINGS_SUBTYPE = 'foodstuffsOpsSettings';
@@ -77,10 +78,6 @@ export type FoodstuffsOpsSummary = {
     costPerBasket: number;
   }[];
 };
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function defaultSettings(): FoodstuffsOpsSettings {
   return {
@@ -227,7 +224,7 @@ export async function getFoodstuffsOpsSummary(
   const activeSubs = subscriptions.filter((s) => pickStr(s.data, 'status') === 'Active');
   const userIds = activeSubs.map((s) => s.owner_id).filter(Boolean) as string[];
   const wallets = await walletMapForSubscriptions(supabase, userIds);
-  const today = todayIso();
+  const today = todayIsoNg();
   const requiredBalance = settings.dailyContribution * settings.lowBalanceDays;
 
   const paidToday = payments.filter((p) => pickStr(p.data, 'date') === today).length;
@@ -336,7 +333,7 @@ async function recordDebitAttempt(
       memberName: pickStr(input.subscription.data, 'memberName'),
       memberId: pickStr(input.subscription.data, 'memberId'),
       amount: input.amount,
-      date: todayIso(),
+      date: todayIsoNg(),
       status: input.status,
       reason: input.reason ?? '',
       walletBalance: input.walletBalance ?? 0,
@@ -367,7 +364,7 @@ export async function runFoodstuffsAutoDebit(
     supabase,
     subscriptions.map((s) => s.owner_id as string)
   );
-  const today = todayIso();
+  const today = todayIsoNg();
   const out = { ok: true as const, processed: subscriptions.length, success: 0, alreadyPaid: 0, lowBalance: 0, failed: 0, skipped: 0 };
 
   for (const sub of subscriptions) {
@@ -436,7 +433,7 @@ export async function createFoodstuffsRoute(
   if (!deliveryIds.length) throw new Error('delivery_ids_required');
 
   const payload = {
-    routeDate: String(body.routeDate ?? todayIso()),
+    routeDate: String(body.routeDate ?? todayIsoNg()),
     branch: String(body.branch ?? '').trim(),
     zone: String(body.zone ?? '').trim(),
     driverName: String(body.driverName ?? '').trim(),

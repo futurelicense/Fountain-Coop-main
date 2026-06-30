@@ -86,3 +86,30 @@ export async function verifyMemberPaystackDeposit(body: {
     body: JSON.stringify(body),
   });
 }
+
+export type MemberBankOption = {
+  name: string;
+  code: string;
+};
+
+export async function fetchMemberBanks(): Promise<MemberBankOption[]> {
+  const res = await apiFetch<{ ok: true; banks: MemberBankOption[] }>(
+    '/api/member/wallet/banks'
+  );
+  return res.banks;
+}
+
+export async function resolveMemberBankAccount(body: {
+  account_number: string;
+  bank_code: string;
+}): Promise<{
+  ok: true;
+  account_number: string;
+  account_name: string;
+  bank_id: number;
+}> {
+  return apiFetch('/api/member/wallet/resolve-account', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}

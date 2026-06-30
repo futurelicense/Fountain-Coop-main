@@ -9,6 +9,8 @@ export {
 export { loginRequest } from './auth';
 export { supabasePasswordSignIn } from './supabasePasswordSignIn';
 export { fetchMe } from './me';
+export { fetchMemberThriftCollector } from './thrift';
+export type { MemberThriftCollector } from './thrift';
 export {
   listOperational,
   createOperational,
@@ -17,7 +19,10 @@ export {
   postMemberWallet,
   initializeMemberPaystackDeposit,
   verifyMemberPaystackDeposit,
+  fetchMemberBanks,
+  resolveMemberBankAccount,
 } from './operations';
+export type { MemberBankOption } from './operations';
 export { fetchMembers } from './members';
 export { fetchDashboard } from './dashboard';
 export { fetchLoanEligibility } from './loans';

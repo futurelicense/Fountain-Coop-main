@@ -171,8 +171,9 @@ export function FoodstuffsOpsPanel() {
             Ajo-for-Foodstuffs Operations
           </h3>
           <p className="text-sm text-fountain-gray-600 mt-1">
-            Auto-debit, internal low-balance tracking, basket margin controls,
-            and delivery route cost logging. No external notification layer is enabled.
+            Daily wallet debits run automatically at 6:00 AM Nigeria time for
+            members with auto debit on. Use the button below for an immediate
+            run, or to retry after top-ups.
           </p>
         </div>
         <button
@@ -288,7 +289,7 @@ export function FoodstuffsOpsPanel() {
                 })
               }
             />
-            Enable auto-debit runs
+            Enable scheduled auto-debit runs
           </label>
           <div className="mt-4 flex justify-between items-center gap-3">
             <p className="text-xs text-fountain-gray-500">

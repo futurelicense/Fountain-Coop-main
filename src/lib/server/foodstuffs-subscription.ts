@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { pickNum, pickStr } from '@/lib/pickData';
 import { FOODSTUFFS_DEFAULTS } from '@/lib/investment-products';
 import { addDays } from '@/lib/server/investment-approval';
+import { todayIsoNg } from '@/lib/server/date-ng';
 import { runWalletForUser } from '@/lib/server/member-wallet';
 
 type SubRow = {
@@ -11,10 +12,6 @@ type SubRow = {
   data: Record<string, unknown>;
   branch: string | null;
 };
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 async function hasScheduledDelivery(
   supabase: SupabaseClient,
@@ -72,7 +69,7 @@ export async function processMissedFoodstuffsDeliveries(
   userId: string,
   user?: import('@supabase/supabase-js').User
 ): Promise<{ penaltiesApplied: number }> {
-  const today = todayIso();
+  const today = todayIsoNg();
   const { data: deliveries } = await supabase
     .from('operational_items')
     .select('id, data')
@@ -160,7 +157,7 @@ export async function payFoodstuffsDailyContribution(
   }
 
   const subData = sub.data;
-  const today = todayIso();
+  const today = todayIsoNg();
   if (pickStr(subData, 'lastPaymentDate') === today) {
     return NextResponse.json({ error: 'already_paid_today' }, { status: 409 });
   }
@@ -330,7 +327,7 @@ export async function updateFoodstuffsDeliveryProfile(
   if (pickNum(subData, 'daysPaidInCycle') >= daysPerCycle) {
     const alreadyScheduled = await hasScheduledDelivery(supabase, userId, sub.id);
     if (!alreadyScheduled) {
-      const today = todayIso();
+      const today = todayIsoNg();
       const windowDays = pickNum(
         subData,
         'redemptionWindowDays',
@@ -389,7 +386,7 @@ export async function redeemFoodstuffsDelivery(
   userId: string,
   deliveryId: string
 ): Promise<{ ok: true } | NextResponse> {
-  const today = todayIso();
+  const today = todayIsoNg();
   const { data: row } = await supabase
     .from('operational_items')
     .select('id, owner_id, data')

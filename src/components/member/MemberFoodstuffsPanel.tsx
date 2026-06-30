@@ -247,7 +247,7 @@ export function MemberFoodstuffsPanel() {
             </p>
             <p className="text-xs text-fountain-gray-500 mt-0.5">
               {autoDebitEnabled
-                ? 'We will debit your wallet automatically during admin debit runs.'
+                ? 'Your wallet is debited automatically each day when you have enough balance.'
                 : 'Auto debit is off. Use Pay today to keep your basket cycle moving.'}
             </p>
           </div>

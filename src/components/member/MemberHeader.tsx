@@ -16,7 +16,7 @@ export function MemberHeader({
   branch,
 }: MemberHeaderProps) {
   return (
-    <header className="bg-fountain-dark text-white px-4 pt-10 pb-6 safe-area-top">
+    <header className="bg-fountain-dark text-white px-4 pt-10 pb-8 safe-area-top">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-3">
           <img
@@ -55,7 +55,7 @@ export function MemberHeader({
           })()}
         </p>
         <h1 className="text-xl font-bold">{greetingName}</h1>
-        <p className="text-white/50 text-xs mt-0.5">
+        <p className="text-white/50 text-xs mt-0.5 mb-1">
           {[memberCode, branch].filter(Boolean).join(' • ') || 'Member portal'}
         </p>
       </div>

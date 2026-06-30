@@ -85,3 +85,87 @@ export async function verifyPaystackTransaction(reference: string) {
   }
   return body.data;
 }
+
+export type PaystackBank = {
+  name: string;
+  code: string;
+};
+
+type PaystackBankListResponse = {
+  status: boolean;
+  message: string;
+  data?: PaystackBank[];
+};
+
+type PaystackResolveResponse = {
+  status: boolean;
+  message: string;
+  data?: {
+    account_number: string;
+    account_name: string;
+    bank_id: number;
+  };
+};
+
+export async function listPaystackBanks(): Promise<PaystackBank[]> {
+  const key = getPaystackSecret();
+  if (!key) {
+    throw new Error('paystack_not_configured');
+  }
+  const res = await fetch(
+    'https://api.paystack.co/bank?country=nigeria&perPage=100',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${key}` },
+    }
+  );
+  const body = (await res.json()) as PaystackBankListResponse;
+  if (!res.ok || !body.status || !body.data) {
+    throw new Error(body.message || 'paystack_banks_failed');
+  }
+  const seen = new Set<string>();
+  return body.data
+    .filter((b) => b.code && b.name)
+    .filter((b) => {
+      if (seen.has(b.code)) return false;
+      seen.add(b.code);
+      return true;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function resolvePaystackBankAccount(input: {
+  accountNumber: string;
+  bankCode: string;
+}) {
+  const key = getPaystackSecret();
+  if (!key) {
+    throw new Error('paystack_not_configured');
+  }
+  const accountNumber = input.accountNumber.replace(/\D/g, '');
+  const bankCode = input.bankCode.trim();
+  if (accountNumber.length < 10) {
+    throw new Error('invalid_account_number');
+  }
+  if (!bankCode) {
+    throw new Error('bank_required');
+  }
+
+  const url = new URL('https://api.paystack.co/bank/resolve');
+  url.searchParams.set('account_number', accountNumber);
+  url.searchParams.set('bank_code', bankCode);
+
+  const res = await fetch(url.toString(), {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${key}` },
+  });
+  const body = (await res.json()) as PaystackResolveResponse;
+  if (!res.ok || !body.status || !body.data?.account_name) {
+    throw new Error(body.message || 'account_resolve_failed');
+  }
+  return {
+    account_number: body.data.account_number,
+    account_name: body.data.account_name,
+    bank_id: body.data.bank_id,
+  };
+}

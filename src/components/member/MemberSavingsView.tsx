@@ -21,15 +21,21 @@ import { AmountField } from '@/components/member/ui/AmountField';
 import { BottomSheet } from '@/components/member/ui/BottomSheet';
 import { LedgerFeed } from '@/components/member/ui/LedgerFeed';
 import { SavingsTabBar } from '@/components/member/ui/SavingsTabBar';
+import { PaymentMethodFields } from '@/components/member/ui/PaymentMethodFields';
 import { formatNaira } from '@/lib/formatNaira';
 import {
   ApiError,
   fetchMe,
+  fetchMemberBanks,
+  fetchMemberThriftCollector,
   initializeMemberPaystackDeposit,
   postMemberWallet,
+  resolveMemberBankAccount,
   verifyMemberPaystackDeposit,
 } from '@/api';
+import type { MemberBankOption } from '@/api/operations';
 import type { MeProfile } from '@/api/types';
+import type { MemberThriftCollector } from '@/api/thrift';
 import { useOperationalRecords } from '@/hooks/useOperationalRecords';
 import { pickNum, pickStr } from '@/lib/pickData';
 interface MemberSavingsProps {
@@ -58,6 +64,17 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
   const [depositAmount, setDepositAmount] = useState(50000);
   const [withdrawAmount, setWithdrawAmount] = useState(10000);
   const [thriftPayAmount, setThriftPayAmount] = useState(500);
+  const [thriftPaymentMethod, setThriftPaymentMethod] = useState('cash_collector');
+  const [withdrawPayoutMethod, setWithdrawPayoutMethod] = useState('bank_transfer');
+  const [withdrawReason, setWithdrawReason] = useState('Personal Needs');
+  const [payoutAccount, setPayoutAccount] = useState('');
+  const [payoutBankCode, setPayoutBankCode] = useState('');
+  const [payoutAccountName, setPayoutAccountName] = useState('');
+  const [banks, setBanks] = useState<MemberBankOption[]>([]);
+  const [banksLoading, setBanksLoading] = useState(false);
+  const [resolveLoading, setResolveLoading] = useState(false);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+  const [collector, setCollector] = useState<MemberThriftCollector | null>(null);
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
   const [showBalance, setShowBalance] = useState(true);
@@ -80,6 +97,77 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    void fetchMemberThriftCollector()
+      .then(setCollector)
+      .catch(() => setCollector(null));
+  }, [profile?.member_code, profile?.branch]);
+
+  useEffect(() => {
+    if (!showWithdrawModal) return;
+    setBanksLoading(true);
+    void fetchMemberBanks()
+      .then(setBanks)
+      .catch(() => setBanks([]))
+      .finally(() => setBanksLoading(false));
+  }, [showWithdrawModal]);
+
+  useEffect(() => {
+    if (!showWithdrawModal || withdrawPayoutMethod !== 'bank_transfer') {
+      return;
+    }
+    const digits = payoutAccount.replace(/\D/g, '');
+    if (!payoutBankCode || digits.length < 10) {
+      setPayoutAccountName('');
+      setResolveError(null);
+      setResolveLoading(false);
+      return;
+    }
+
+    setResolveLoading(true);
+    setResolveError(null);
+    const timer = window.setTimeout(() => {
+      void resolveMemberBankAccount({
+        account_number: digits,
+        bank_code: payoutBankCode,
+      })
+        .then((res) => {
+          setPayoutAccountName(res.account_name);
+          setResolveError(null);
+        })
+        .catch((e) => {
+          setPayoutAccountName('');
+          let msg = 'Could not verify this account. Check bank and number.';
+          if (e instanceof ApiError) {
+            const body = e.body as { error?: string; hint?: string } | null;
+            msg = body?.hint || body?.error || msg;
+          }
+          setResolveError(msg);
+        })
+        .finally(() => setResolveLoading(false));
+    }, 600);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    showWithdrawModal,
+    withdrawPayoutMethod,
+    payoutAccount,
+    payoutBankCode,
+  ]);
+
+  const payoutBankName = useMemo(
+    () => banks.find((b) => b.code === payoutBankCode)?.name ?? '',
+    [banks, payoutBankCode]
+  );
+
+  const bankTransferReady =
+    withdrawPayoutMethod !== 'bank_transfer' ||
+    (payoutBankCode &&
+      payoutAccount.replace(/\D/g, '').length >= 10 &&
+      Boolean(payoutAccountName) &&
+      !resolveLoading &&
+      !resolveError);
 
   useEffect(() => {
     const reference =
@@ -290,6 +378,11 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
             <button
             onClick={() => {
               setWithdrawConfirmed(false);
+              setWithdrawPayoutMethod('bank_transfer');
+              setPayoutAccount('');
+              setPayoutBankCode('');
+              setPayoutAccountName('');
+              setResolveError(null);
               setShowWithdrawModal(true);
             }}
             className="flex items-center justify-center space-x-2 py-3.5 bg-white border-2 border-fountain-gray-200 text-fountain-gray-700 rounded-xl font-semibold text-sm hover:bg-fountain-gray-50 transition-colors">
@@ -439,6 +532,7 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
           <button
           onClick={() => {
             setThriftPayConfirmed(false);
+            setThriftPaymentMethod('cash_collector');
             setShowThriftPayModal(true);
           }}
           className="w-full py-3.5 bg-fountain-teal text-white rounded-xl font-semibold text-sm hover:bg-teal-700 transition-colors shadow-lg shadow-fountain-teal/25">
@@ -512,25 +606,36 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
             <h4 className="text-xs font-semibold text-fountain-gray-900 mb-3">
               Your Collector
             </h4>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-fountain-teal/10 text-fountain-teal flex items-center justify-center font-bold text-sm">
-                TA
+            {collector ? (
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-fountain-teal/10 text-fountain-teal flex items-center justify-center font-bold text-sm">
+                  {collector.initials}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-fountain-gray-900">
+                    {collector.name}
+                  </p>
+                  <p className="text-xs text-fountain-gray-500">
+                    {collector.collectorCode} · {collector.branch}
+                  </p>
+                  <p className="text-[11px] text-fountain-gray-400 mt-0.5">
+                    Member ID {collector.memberCode} — show this when paying cash
+                  </p>
+                </div>
+                {collector.phone ? (
+                  <a
+                    href={`tel:${collector.phone.replace(/\s/g, '')}`}
+                    className="p-2 bg-fountain-teal/10 text-fountain-teal rounded-lg"
+                  >
+                    <PhoneIcon className="w-4 h-4" />
+                  </a>
+                ) : null}
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-fountain-gray-900">
-                  Tolu Adegoke
-                </p>
-                <p className="text-xs text-fountain-gray-500">
-                  Lagos Main Branch
-                </p>
-              </div>
-              <a
-              href="tel:+2348011234567"
-              className="p-2 bg-fountain-teal/10 text-fountain-teal rounded-lg">
-              
-                <PhoneIcon className="w-4 h-4" />
-              </a>
-            </div>
+            ) : (
+              <p className="text-sm text-fountain-gray-500">
+                Loading collector assignment…
+              </p>
+            )}
           </div>
 
           {/* Plan Details */}
@@ -601,68 +706,47 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
       {/* ═══════════════ MODALS ═══════════════ */}
 
       {/* Deposit Modal */}
-      <BottomSheet open={showDepositModal} onClose={() => setShowDepositModal(false)} title={depositConfirmed ? undefined : 'Deposit'}>
-        {!depositConfirmed ?
-        <>
-            <div className="space-y-4">
-              <AmountField
-                label="Amount"
-                value={depositAmount}
-                onChange={setDepositAmount}
-                presets={[10000, 25000, 50000, 100000]}
-                hint="Deposits are securely processed with Paystack."
-                accent="green"
-              />
-              <button
-                type="button"
-                disabled={walletBusy || depositAmount <= 0}
-                onClick={() => {
-                  setWalletError(null);
-                  setWalletBusy(true);
-                  void initializeMemberPaystackDeposit({ amount: depositAmount })
-                    .then((res) => {
-                      window.location.href = res.authorization_url;
-                    })
-                    .catch((e) => {
-                      let msg = 'Could not start Paystack checkout';
-                      if (e instanceof ApiError) {
-                        const body = e.body as
-                          | { error?: string; hint?: string }
-                          | null;
-                        if (e.status === 503 && body?.error === 'supabase_session_required') {
-                          msg =
-                            'Please sign in with your member Supabase account again, then retry deposit.';
-                        } else if (e.status === 503 && body?.error === 'paystack_not_configured') {
-                          msg =
-                            'Paystack is not configured on the server. Add PAYSTACK_SECRET_KEY and restart dev.';
-                        } else {
-                          msg = JSON.stringify(e.body);
-                        }
+      <BottomSheet
+        open={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        title={depositConfirmed ? undefined : 'Deposit'}
+        footer={
+          !depositConfirmed ? (
+            <button
+              type="button"
+              disabled={walletBusy || depositAmount <= 0}
+              onClick={() => {
+                setWalletError(null);
+                setWalletBusy(true);
+                void initializeMemberPaystackDeposit({ amount: depositAmount })
+                  .then((res) => {
+                    window.location.href = res.authorization_url;
+                  })
+                  .catch((e) => {
+                    let msg = 'Could not start Paystack checkout';
+                    if (e instanceof ApiError) {
+                      const body = e.body as
+                        | { error?: string; hint?: string }
+                        | null;
+                      if (e.status === 503 && body?.error === 'supabase_session_required') {
+                        msg =
+                          'Please sign in with your member Supabase account again, then retry deposit.';
+                      } else if (e.status === 503 && body?.error === 'paystack_not_configured') {
+                        msg =
+                          'Paystack is not configured on the server. Add PAYSTACK_SECRET_KEY and restart dev.';
+                      } else {
+                        msg = JSON.stringify(e.body);
                       }
-                      setWalletError(String(msg));
-                    })
-                    .finally(() => setWalletBusy(false));
-                }}
-                className="w-full py-3.5 bg-fountain-green text-white rounded-xl font-semibold text-sm shadow-lg shadow-fountain-green/25 disabled:opacity-50"
-              >
-                {walletBusy ? 'Opening checkout…' : 'Continue to Paystack'}
-              </button>
-            </div>
-          </> :
-
-        <div className="text-center py-4">
-            <div className="w-16 h-16 bg-fountain-green/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircleIcon className="w-8 h-8 text-fountain-green" />
-            </div>
-            <h3 className="text-lg font-bold text-fountain-gray-900 mb-1">
-              Deposit Successful!
-            </h3>
-            <p className="text-sm text-fountain-gray-500 mb-1">
-              {formatNaira(depositAmount)} added to your savings balance
-            </p>
-            <p className="text-xs text-fountain-gray-400 mb-6">
-              Recorded in your wallet ledger.
-            </p>
+                    }
+                    setWalletError(String(msg));
+                  })
+                  .finally(() => setWalletBusy(false));
+              }}
+              className="w-full py-3.5 bg-fountain-green text-white rounded-xl font-semibold text-sm shadow-lg shadow-fountain-green/25 disabled:opacity-50"
+            >
+              {walletBusy ? 'Opening checkout…' : 'Continue to Paystack'}
+            </button>
+          ) : (
             <button
               type="button"
               onClick={() => {
@@ -673,8 +757,36 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
             >
               Done
             </button>
-          </div>
+          )
         }
+      >
+        {!depositConfirmed ? (
+          <div className="space-y-4">
+            <AmountField
+              label="Amount"
+              value={depositAmount}
+              onChange={setDepositAmount}
+              presets={[10000, 25000, 50000, 100000]}
+              hint="Deposits are securely processed with Paystack."
+              accent="green"
+            />
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <div className="w-16 h-16 bg-fountain-green/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircleIcon className="w-8 h-8 text-fountain-green" />
+            </div>
+            <h3 className="text-lg font-bold text-fountain-gray-900 mb-1">
+              Deposit Successful!
+            </h3>
+            <p className="text-sm text-fountain-gray-500 mb-1">
+              {formatNaira(depositAmount)} added to your savings balance
+            </p>
+            <p className="text-xs text-fountain-gray-400">
+              Recorded in your wallet ledger.
+            </p>
+          </div>
+        )}
       </BottomSheet>
 
       {/* Withdraw Modal */}
@@ -682,10 +794,84 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
         open={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}
         title={withdrawConfirmed ? undefined : 'Withdraw'}
+        footer={
+          !withdrawConfirmed ? (
+            <div className="space-y-2">
+              {withdrawPayoutMethod === 'bank_transfer' &&
+              !bankTransferReady &&
+              !resolveLoading ? (
+                <p className="text-xs text-fountain-gray-500 text-center">
+                  Select your bank, enter a 10-digit account number, and wait
+                  for the account name to appear.
+                </p>
+              ) : null}
+              {withdrawPayoutMethod === 'mobile_money' &&
+              payoutAccount.replace(/\D/g, '').length < 10 ? (
+                <p className="text-xs text-fountain-gray-500 text-center">
+                  Enter a valid mobile money number to enable submit.
+                </p>
+              ) : null}
+              <button
+                type="button"
+                disabled={
+                  walletBusy ||
+                  withdrawAmount <= 0 ||
+                  !bankTransferReady ||
+                  (withdrawPayoutMethod === 'mobile_money' &&
+                    payoutAccount.replace(/\D/g, '').length < 10)
+                }
+                onClick={() => {
+                  setWalletError(null);
+                  setWalletBusy(true);
+                  const payoutDigits = payoutAccount.replace(/\D/g, '');
+                  const payoutLabel =
+                    withdrawPayoutMethod === 'bank_transfer'
+                      ? `${payoutBankName} · ${payoutDigits} · ${payoutAccountName}`
+                      : withdrawPayoutMethod === 'mobile_money'
+                        ? `Mobile ${payoutDigits}`
+                        : 'Cash at branch';
+                  void postMemberWallet({
+                    kind: 'withdraw',
+                    amount: withdrawAmount,
+                    label: `Member withdrawal (${withdrawReason}; ${payoutLabel})`,
+                  })
+                    .then(async (res) => {
+                      setProfile((p) =>
+                        p ? { ...p, savings_balance: res.savings_balance } : p
+                      );
+                      await ledger.reload();
+                      setWithdrawConfirmed(true);
+                    })
+                    .catch((e) => {
+                      const msg =
+                        e instanceof ApiError
+                          ? JSON.stringify(e.body)
+                          : 'Withdrawal failed';
+                      setWalletError(String(msg));
+                    })
+                    .finally(() => setWalletBusy(false));
+                }}
+                className="w-full py-3.5 bg-fountain-blue text-white rounded-xl font-semibold text-sm shadow-lg shadow-fountain-blue/25 disabled:opacity-50"
+              >
+                {walletBusy ? 'Processing…' : 'Submit withdrawal'}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setShowWithdrawModal(false);
+                setWithdrawConfirmed(false);
+              }}
+              className="w-full py-3 bg-fountain-gray-100 text-fountain-gray-700 rounded-xl font-medium text-sm"
+            >
+              Done
+            </button>
+          )
+        }
       >
-        
-        {!withdrawConfirmed ?
-        <>
+        {!withdrawConfirmed ? (
+          <>
             <div className="bg-fountain-amber/10 border border-fountain-amber/20 rounded-xl p-3 mb-4 flex items-start space-x-2">
               <InfoIcon className="w-4 h-4 text-fountain-amber flex-shrink-0 mt-0.5" />
               <p className="text-xs text-fountain-amber font-medium">
@@ -706,7 +892,11 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
                 <label className="block text-sm font-medium text-fountain-gray-700 mb-1">
                   Reason
                 </label>
-                <select className="w-full p-3 bg-fountain-gray-50 border border-fountain-gray-200 rounded-xl text-sm outline-none">
+                <select
+                  value={withdrawReason}
+                  onChange={(e) => setWithdrawReason(e.target.value)}
+                  className="w-full p-3 bg-fountain-gray-50 border border-fountain-gray-200 rounded-xl text-sm outline-none focus:border-fountain-blue"
+                >
                   <option>Personal Needs</option>
                   <option>Medical Emergency</option>
                   <option>School Fees</option>
@@ -714,43 +904,48 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
                   <option>Other</option>
                 </select>
               </div>
-              <button
-                type="button"
-                disabled={walletBusy || withdrawAmount <= 0}
-                onClick={() => {
-                  setWalletError(null);
-                  setWalletBusy(true);
-                  void postMemberWallet({
-                    kind: 'withdraw',
-                    amount: withdrawAmount,
-                    label: 'Member withdrawal',
-                  })
-                    .then(async (res) => {
-                      setProfile((p) =>
-                        p
-                          ? { ...p, savings_balance: res.savings_balance }
-                          : p
-                      );
-                      await ledger.reload();
-                      setWithdrawConfirmed(true);
-                    })
-                    .catch((e) => {
-                      const msg =
-                        e instanceof ApiError
-                          ? JSON.stringify(e.body)
-                          : 'Withdrawal failed';
-                      setWalletError(String(msg));
-                    })
-                    .finally(() => setWalletBusy(false));
+              <PaymentMethodFields
+                mode="withdraw"
+                label="Payout method"
+                value={withdrawPayoutMethod}
+                onChange={(method) => {
+                  setWithdrawPayoutMethod(method);
+                  if (method !== 'bank_transfer') {
+                    setPayoutAccountName('');
+                    setResolveError(null);
+                  }
                 }}
-                className="w-full py-3.5 bg-fountain-blue text-white rounded-xl font-semibold text-sm shadow-lg shadow-fountain-blue/25 disabled:opacity-50"
-              >
-                {walletBusy ? 'Processing…' : 'Submit withdrawal'}
-              </button>
+                options={[
+                  { value: 'bank_transfer', label: 'Bank transfer' },
+                  { value: 'cash_branch', label: 'Cash at branch' },
+                  { value: 'mobile_money', label: 'Mobile money' },
+                ]}
+                memberCode={profile?.member_code}
+                branch={profile?.branch}
+                payoutAccount={payoutAccount}
+                onPayoutAccountChange={(value) => {
+                  setPayoutAccount(value);
+                  if (withdrawPayoutMethod === 'bank_transfer') {
+                    setPayoutAccountName('');
+                    setResolveError(null);
+                  }
+                }}
+                payoutBankCode={payoutBankCode}
+                onPayoutBankCodeChange={(code) => {
+                  setPayoutBankCode(code);
+                  setPayoutAccountName('');
+                  setResolveError(null);
+                }}
+                banks={banks}
+                banksLoading={banksLoading}
+                payoutAccountName={payoutAccountName}
+                resolveLoading={resolveLoading}
+                resolveError={resolveError}
+              />
             </div>
-          </> :
-
-        <div className="text-center py-4">
+          </>
+        ) : (
+          <div className="text-center py-4">
             <div className="w-16 h-16 bg-fountain-blue/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <ClockIcon className="w-8 h-8 text-fountain-blue" />
             </div>
@@ -760,21 +955,11 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
             <p className="text-sm text-fountain-gray-500 mb-1">
               {formatNaira(withdrawAmount)} debited from your savings balance
             </p>
-            <p className="text-xs text-fountain-gray-400 mb-6">
+            <p className="text-xs text-fountain-gray-400">
               Recorded in your wallet ledger.
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                setShowWithdrawModal(false);
-                setWithdrawConfirmed(false);
-              }}
-              className="w-full py-3 bg-fountain-gray-100 text-fountain-gray-700 rounded-xl font-medium text-sm"
-            >
-              Done
-            </button>
           </div>
-        }
+        )}
       </BottomSheet>
 
       {/* Thrift Pay Modal */}
@@ -782,10 +967,62 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
         open={showThriftPayModal}
         onClose={() => setShowThriftPayModal(false)}
         title={thriftPayConfirmed ? undefined : "Log today's thrift"}
+        footer={
+          !thriftPayConfirmed ? (
+            <button
+              type="button"
+              disabled={walletBusy || thriftPayAmount <= 0}
+              onClick={() => {
+                setWalletError(null);
+                setWalletBusy(true);
+                void postMemberWallet({
+                  kind: 'withdraw',
+                  amount: thriftPayAmount,
+                  label: `Thrift contribution (${thriftPaymentMethod.replace(/_/g, ' ')})`,
+                })
+                  .then(async (res) => {
+                    setProfile((p) =>
+                      p ? { ...p, savings_balance: res.savings_balance } : p
+                    );
+                    await ledger.reload();
+                    setThriftPayConfirmed(true);
+                  })
+                  .catch((e) => {
+                    let msg = 'Payment failed';
+                    if (e instanceof ApiError) {
+                      const body = e.body as
+                        | { error?: string; hint?: string }
+                        | null;
+                      msg = [body?.error, body?.hint].filter(Boolean).join(' — ') || msg;
+                      if (body?.error === 'insufficient_balance') {
+                        msg =
+                          'Insufficient wallet balance. Deposit to your wallet first, then log thrift.';
+                      }
+                    }
+                    setWalletError(msg);
+                  })
+                  .finally(() => setWalletBusy(false));
+              }}
+              className="w-full py-3.5 bg-fountain-teal text-white rounded-xl font-semibold text-sm shadow-lg shadow-fountain-teal/25 disabled:opacity-50"
+            >
+              {walletBusy ? 'Processing…' : 'Log thrift payment'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setShowThriftPayModal(false);
+                setThriftPayConfirmed(false);
+              }}
+              className="w-full py-3 bg-fountain-gray-100 text-fountain-gray-700 rounded-xl font-medium text-sm"
+            >
+              Done
+            </button>
+          )
+        }
       >
-        
-        {!thriftPayConfirmed ?
-        <>
+        {!thriftPayConfirmed ? (
+          <>
             <div className="bg-fountain-teal/5 border border-fountain-teal/20 rounded-xl p-4 mb-4 text-center">
               <p className="text-xs text-fountain-gray-500 mb-1">Amount Due</p>
               <p className="text-3xl font-bold text-fountain-gray-900">
@@ -803,60 +1040,23 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
                 presets={[500, 1000, 2000]}
                 accent="teal"
               />
-              <div>
-                <label className="block text-sm font-medium text-fountain-gray-700 mb-1">
-                  Payment Method
-                </label>
-                <select className="w-full p-3 bg-fountain-gray-50 border border-fountain-gray-200 rounded-xl text-sm outline-none">
-                  <option>Cash to Collector</option>
-                  <option>Bank Transfer</option>
-                  <option>Card Payment</option>
-                </select>
-              </div>
-              <button
-                type="button"
-                disabled={walletBusy || thriftPayAmount <= 0}
-                onClick={() => {
-                  setWalletError(null);
-                  setWalletBusy(true);
-                  void postMemberWallet({
-                    kind: 'withdraw',
-                    amount: thriftPayAmount,
-                    label: 'Thrift contribution',
-                  })
-                    .then(async (res) => {
-                      setProfile((p) =>
-                        p
-                          ? { ...p, savings_balance: res.savings_balance }
-                          : p
-                      );
-                      await ledger.reload();
-                      setThriftPayConfirmed(true);
-                    })
-                    .catch((e) => {
-                      let msg = 'Payment failed';
-                      if (e instanceof ApiError) {
-                        const body = e.body as
-                          | { error?: string; hint?: string }
-                          | null;
-                        msg = [body?.error, body?.hint].filter(Boolean).join(' — ') || msg;
-                        if (body?.error === 'insufficient_balance') {
-                          msg =
-                            'Insufficient wallet balance. Deposit to your wallet first, then log thrift.';
-                        }
-                      }
-                      setWalletError(msg);
-                    })
-                    .finally(() => setWalletBusy(false));
-                }}
-                className="w-full py-3.5 bg-fountain-teal text-white rounded-xl font-semibold text-sm shadow-lg shadow-fountain-teal/25 disabled:opacity-50"
-              >
-                {walletBusy ? 'Processing…' : 'Log thrift payment'}
-              </button>
+              <PaymentMethodFields
+                mode="thrift"
+                value={thriftPaymentMethod}
+                onChange={setThriftPaymentMethod}
+                options={[
+                  { value: 'cash_collector', label: 'Cash to Collector' },
+                  { value: 'bank_transfer', label: 'Bank Transfer' },
+                  { value: 'card_payment', label: 'Card Payment' },
+                ]}
+                collector={collector}
+                memberCode={profile?.member_code}
+                branch={profile?.branch}
+              />
             </div>
-          </> :
-
-        <div className="text-center py-4">
+          </>
+        ) : (
+          <div className="text-center py-4">
             <div className="w-16 h-16 bg-fountain-green/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircleIcon className="w-8 h-8 text-fountain-green" />
             </div>
@@ -866,21 +1066,11 @@ export function MemberSavings({ defaultTab = 'coop' }: MemberSavingsProps) {
             <p className="text-sm text-fountain-gray-500 mb-1">
               {formatNaira(thriftPayAmount)} thrift contribution recorded
             </p>
-            <p className="text-xs text-fountain-teal font-medium mb-6">
+            <p className="text-xs text-fountain-teal font-medium">
               See Thrift payments for the ledger entry.
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                setShowThriftPayModal(false);
-                setThriftPayConfirmed(false);
-              }}
-              className="w-full py-3 bg-fountain-gray-100 text-fountain-gray-700 rounded-xl font-medium text-sm"
-            >
-              Done
-            </button>
           </div>
-        }
+        )}
       </BottomSheet>
     </div>
   );
