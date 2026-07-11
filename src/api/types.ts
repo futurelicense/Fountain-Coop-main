@@ -148,6 +148,55 @@ export interface DashboardComplianceItem {
   time: string;
 }
 
+export type MembershipApplicationStatus =
+  | 'pending_payment'
+  | 'paid'
+  | 'account_created'
+  | 'cancelled';
+
+export interface MembershipApplicationRow {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  occupation: string | null;
+  status: MembershipApplicationStatus;
+  registration_fee: number;
+  monthly_contribution: number;
+  wants_fountain_basket: boolean;
+  created_at: string;
+}
+
+export interface MembershipApplicationDetail extends MembershipApplicationRow {
+  is_employed: boolean;
+  employer: string | null;
+  owns_business: boolean;
+  business_type: string | null;
+  home_address: string;
+  office_address: string | null;
+  referral_source: string | null;
+  next_of_kin_name: string | null;
+  next_of_kin_address: string | null;
+  next_of_kin_phone: string | null;
+  emergency_contact: string | null;
+  declaration_accepted: boolean;
+  payment_reference: string | null;
+  amount_paid: number | null;
+  paid_at: string | null;
+  user_id: string | null;
+  photo_signed_url: string | null;
+}
+
+export interface MembershipApplicationsListResponse {
+  applications: MembershipApplicationRow[];
+  summary: {
+    total: number;
+    pendingPayment: number;
+    paid: number;
+    accountCreated: number;
+  };
+}
+
 export interface DashboardResponse {
   kpis: DashboardKpis;
   memberGrowth: MemberGrowthPoint[];

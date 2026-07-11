@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { ArrowRightIcon, EyeIcon, EyeOffIcon } from 'lucide-react';
 import {
   ApiError,
@@ -223,14 +224,9 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
         <p className="text-center text-xs text-fountain-gray-400 mt-6">
           Don&apos;t have an account?{' '}
-          <a
-            href="https://chat.whatsapp.com/LnlAL4epJDD8lx0tEdRP0E?s=cl&p=i&mlu=2"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-fountain-blue font-semibold hover:underline"
-          >
-            Contact your cooperative
-          </a>
+          <Link href="/apply" className="text-fountain-blue font-semibold hover:underline">
+            Be a Member
+          </Link>
         </p>
       </div>
     </div>

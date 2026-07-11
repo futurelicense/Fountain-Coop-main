@@ -24,6 +24,17 @@ export {
 } from './operations';
 export type { MemberBankOption } from './operations';
 export { fetchMembers } from './members';
+export {
+  submitMembershipApplication,
+  initializeApplicationPayment,
+  verifyApplicationPayment,
+  createMembershipAccount,
+} from './apply';
+export type { MembershipApplicationInput } from './apply';
+export {
+  fetchMembershipApplications,
+  fetchMembershipApplicationDetail,
+} from './membershipApplications';
 export { fetchDashboard } from './dashboard';
 export { fetchLoanEligibility } from './loans';
 export type { MemberLoanEligibility } from './loans';
@@ -73,4 +84,8 @@ export type {
   DashboardBranchRow,
   DashboardActivityItem,
   DashboardComplianceItem,
+  MembershipApplicationStatus,
+  MembershipApplicationRow,
+  MembershipApplicationDetail,
+  MembershipApplicationsListResponse,
 } from './types';

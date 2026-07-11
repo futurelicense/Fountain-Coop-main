@@ -38,6 +38,7 @@ export function AppLayout({ children, currentUser }: AppLayoutProps) {
     const titles: Record<string, string> = {
       dashboard: 'Executive Dashboard',
       members: 'Member Management',
+      applications: 'Membership Applications',
       cooperative: 'Cooperative Savings',
       thrift: 'Thrift Module',
       ajo: 'Ajo/Osusu Cycles',

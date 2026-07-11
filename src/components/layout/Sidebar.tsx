@@ -19,6 +19,7 @@ import {
   ShieldCheckIcon,
   BellIcon,
   SettingsIcon,
+  UserPlusIcon,
   XIcon,
 } from 'lucide-react';
 
@@ -70,7 +71,10 @@ export function Sidebar({
     },
     {
       title: 'MEMBERS',
-      items: [{ id: 'members', label: 'Members', icon: UsersIcon }],
+      items: [
+        { id: 'members', label: 'Members', icon: UsersIcon },
+        { id: 'applications', label: 'Membership Applications', icon: UserPlusIcon },
+      ],
     },
     {
       title: 'PRODUCTS',

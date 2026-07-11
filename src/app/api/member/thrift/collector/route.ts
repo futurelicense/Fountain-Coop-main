@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const admin = getSupabaseAdmin() ?? ctx.supabase;
   const profile = ctx.profile ?? {
     member_code: null,
-    full_name: ctx.user.name,
+    full_name: ctx.user.user_metadata?.full_name ?? ctx.user.email?.split('@')[0] ?? null,
     branch: null,
   };
 
